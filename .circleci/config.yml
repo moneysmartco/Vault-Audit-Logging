@@ -41,7 +41,7 @@ parameters:
     default: ""
 jobs:
   get_env_var_from_vault_sg_staging_eks:
-    <<: *defaults
+    <<: *default-image
     steps:
       - checkout
       - *prod_aws_creds
