@@ -42,6 +42,16 @@ parameters:
     type: string
     default: ""
 jobs:
+  get_env_var_from_vault_sg_staging_eks:
+    <<: *default-image
+    steps:
+      - checkout
+      - *prod_aws_creds
+      - moneysmart-orb/get_env_var_from_vault:
+          secret_path: staging/sg/headers_test
+          repo_name: applications_api
+          output_format: helm
+
   publish_image_to_ecr_staging:
     <<: *default-image
     steps:
@@ -52,16 +62,7 @@ jobs:
           repo_name: vault_audit_logging
           tags: staging-${CIRCLE_SHA1}
           dockerfile: Dockerfile
-          helm-version: v3.9.0
-#---------------------------------------------
-# blog_fe_pwa SG and HK Production Jobs
-#---------------------------------------------
-  release_tag_validation:
-    <<: *default-image
-    steps:
-      - moneysmart-orb/tag_validation:
-          repo_name: circleci-test-repo
-          branch_name: master-demo          
+          helm-version: v3.9.0    
 workflows:
   version: 2.1
 #---------------------------------------------
@@ -73,7 +74,7 @@ workflows:
           context: common-eks-vars
           filters:
             branches:
-              only: master-demo
+              only: main-demo
       - publish_image_to_ecr_staging:
           context: common-eks-vars
           requires:
@@ -81,4 +82,3 @@ workflows:
           filters:
             branches:
               only: main
-              ignore: /.*/
