@@ -13,6 +13,7 @@ defaults: &defaults
       environment:
         ## this enables colors in the output
         TERM: xterm
+
 aliases:
   - &prod_aws_creds
     aws-cli/setup:
@@ -25,12 +26,9 @@ aliases:
       aws-secret-access-key: STAGING_AWS_SECRET_ACCESS_KEY
       aws-region: AWS_REGION
 default-image: &default-image
-  docker:
-    # the Docker image with Cypress dependencies
-    - image: cimg/python:3.10
-      environment:
-        ## this enables colors in the output
-        TERM: xterm
+  machine:
+    image: ubuntu-2004:current
+    docker_layer_caching: true
 parameters:
   deploy_to_pr_env:
     type: boolean
@@ -43,7 +41,7 @@ parameters:
     default: ""
 jobs:
   get_env_var_from_vault_sg_staging_eks:
-    <<: *default-image
+    <<: *defaults
     steps:
       - checkout
       - *prod_aws_creds
