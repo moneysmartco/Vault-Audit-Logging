@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -38,28 +39,35 @@ func logHandler() {
 	}
 }
 
-// watchFile is a function to work on runtime to monitor any change
-// on the filePath and Log it as STDOUT then truncate the file content
+// watchFile monitors changes on the filePath, logs them as STDOUT, and truncates the file content
 func watchFile() {
 	watcher, err := fsnotify.NewWatcher()
 	check(err)
 	defer watcher.Close()
+
+	var debounceTimer *time.Timer
+
 	// starting to listen on events
 	go func() {
 		for {
 			select {
 			case event := <-watcher.Events:
 				if event.Op&fsnotify.Write == fsnotify.Write {
-					logHandler()
+					if debounceTimer != nil {
+						debounceTimer.Stop()
+					}
+					// Debounce with a 1-second delay before calling logHandler
+					debounceTimer = time.AfterFunc(1*time.Second, logHandler)
 				}
 			case err := <-watcher.Errors:
 				check(err)
 			}
 		}
 	}()
+
 	err = watcher.Add(filePath)
 	check(err)
-	<-make(chan struct{})
+	<-make(chan struct{}) // Block forever
 }
 
 func main() {
