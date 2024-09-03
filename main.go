@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"log"
 	"os"
@@ -18,20 +19,42 @@ func check(e error) {
 }
 
 type AuditData struct {
-	auditContent []byte
+	AuditContent []byte
 }
 
 func (ad *AuditData) auditFileCheck() []byte {
-	ad.auditContent, _ = ioutil.ReadFile(filePath)
-	return ad.auditContent
+	ad.AuditContent, _ = ioutil.ReadFile(filePath)
+	return ad.AuditContent
+}
+
+type LogEntry struct {
+	Time         string `json:"time"`
+	Auth         struct {
+		DisplayName string `json:"display_name"`
+	} `json:"auth"`
+	Request struct {
+		Operation string `json:"operation"`
+	} `json:"request"`
+	Response struct {
+		Data map[string]interface{} `json:"data"`
+	} `json:"response"`
 }
 
 func logHandler() {
 	audit := &AuditData{}
 	audit.auditFileCheck()
 
-	// Log the Audit Data as STDOUT
-	log.Println(string(audit.auditContent))
+	var logEntry LogEntry
+	if err := json.Unmarshal(audit.AuditContent, &logEntry); err != nil {
+		log.Printf("Error unmarshaling JSON: %v", err)
+		return
+	}
+
+	// Log the filtered data
+	log.Printf("Time: %s", logEntry.Time)
+	log.Printf("Display Name: %s", logEntry.Auth.DisplayName)
+	log.Printf("Operation: %s", logEntry.Request.Operation)
+	log.Printf("Response Data: %v", logEntry.Response.Data)
 
 	// Truncate the file content after it is being alerted
 	if err := os.Truncate(filePath, 0); err != nil {
