@@ -1,0 +1,84 @@
+version: 2.1
+orbs: 
+  browser-tools: circleci/browser-tools@1.4.0
+  moneysmart-orb: moneysmartco/circleci-orb@dev:alpha
+  pr-env: moneysmartco/pr-env@0.0.1
+  aws-cli: circleci/aws-cli@3.1
+  helm: circleci/helm@1.0
+defaults: &defaults
+  working_directory: ~/app
+  docker:
+    # the Docker image with Cypress dependencies
+    - image: cypress/base:16.14.0
+      environment:
+        ## this enables colors in the output
+        TERM: xterm
+aliases:
+  - &prod_aws_creds
+    aws-cli/setup:
+      aws-access-key-id: AWS_ACCESS_KEY
+      aws-secret-access-key: AWS_SECRET_ACCESS_KEY
+      aws-region: AWS_REGION
+  - &stg_aws_creds
+    aws-cli/setup:
+      aws-access-key-id: STAGING_AWS_ACCESS_KEY
+      aws-secret-access-key: STAGING_AWS_SECRET_ACCESS_KEY
+      aws-region: AWS_REGION
+default-image: &default-image
+  docker:
+    # the Docker image with Cypress dependencies
+    - image: cimg/python:3.10
+      environment:
+        ## this enables colors in the output
+        TERM: xterm
+parameters:
+  deploy_to_pr_env:
+    type: boolean
+    default: false
+  pr_env:
+    type: boolean
+    default: true
+  pr_number:
+    type: string
+    default: ""
+jobs:
+  publish_image_to_ecr_staging:
+    <<: *default-image
+    steps:
+      - checkout
+      - *prod_aws_creds
+      - moneysmart-orb/ecr_build_and_push:
+          build_args_from_env: GEMFURY_KEY
+          repo_name: vault_audit_logging
+          tags: staging-${CIRCLE_SHA1}
+          dockerfile: Dockerfile
+          helm-version: v3.9.0
+#---------------------------------------------
+# blog_fe_pwa SG and HK Production Jobs
+#---------------------------------------------
+  release_tag_validation:
+    <<: *default-image
+    steps:
+      - moneysmart-orb/tag_validation:
+          repo_name: circleci-test-repo
+          branch_name: master-demo          
+workflows:
+  version: 2.1
+#---------------------------------------------
+# campaign_admin SG and HK Staging Pipeline
+#---------------------------------------------
+  staging-build-deploy:
+    jobs:
+      - get_env_var_from_vault_sg_staging_eks:
+          context: common-eks-vars
+          filters:
+            branches:
+              only: master-demo
+      - publish_image_to_ecr_staging:
+          context: common-eks-vars
+          requires:
+            - get_env_var_from_vault_sg_staging_eks
+          filters:
+            branches:
+              only: main
+              ignore: /.*/
